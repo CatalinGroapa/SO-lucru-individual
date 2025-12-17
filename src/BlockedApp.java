@@ -13,6 +13,7 @@ public class BlockedApp {
     private String displayName;
     private String exeName;
     private boolean enabled;
+    private boolean blockImmediately;
     private String exePath;
     private int dailyLimitMinutes;
     private long usageMillisToday;
@@ -61,6 +62,14 @@ public class BlockedApp {
 
     public void setEnabled(boolean enabled) {
         this.enabled = enabled;
+    }
+
+    public boolean isBlockImmediately() {
+        return blockImmediately;
+    }
+
+    public void setBlockImmediately(boolean blockImmediately) {
+        this.blockImmediately = blockImmediately;
     }
 
     public String getExePath() {
@@ -195,6 +204,19 @@ public class BlockedApp {
 
     public String getScheduleSummary() {
         return allowedIntervals == null || allowedIntervals.isBlank() ? "Oricând" : allowedIntervals;
+    }
+
+    public String getStatusLabel() {
+        if (!enabled) {
+            return "Deblocat";
+        }
+        if (blockImmediately) {
+            return "Blocat";
+        }
+        if (hasDailyLimit()) {
+            return "Limitat";
+        }
+        return "Monitorizat";
     }
 
     public String getFriendlyName() {

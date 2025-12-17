@@ -70,29 +70,57 @@ public class Main extends Application {
         TableColumn<BlockedApp, String> scheduleCol = new TableColumn<>("Interval permis");
         scheduleCol.setCellValueFactory(new PropertyValueFactory<>("scheduleSummary"));
 
-        table.getColumns().addAll(nameCol, exeCol, enabledCol, limitCol, scheduleCol);
+        TableColumn<BlockedApp, String> statusCol = new TableColumn<>("Stare");
+        statusCol.setCellValueFactory(new PropertyValueFactory<>("statusLabel"));
+
+        table.getColumns().addAll(nameCol, exeCol, enabledCol, limitCol, scheduleCol, statusCol);
         table.setItems(blockedObservable);
 
         Button addBtn = new Button("Adaugă");
         Button editBtn = new Button("Editează");
         Button removeBtn = new Button("Șterge");
-        Button saveBtn = new Button("Salvează");
+        Button blockNowBtn = new Button("Blochează acum");
+        Button unblockBtn = new Button("Deblochează");
         Button pinBtn = new Button(passwordGuard.isPasswordSet() ? "Schimbă parola" : "Setează parolă");
 
-        addBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> onAddOrEdit(null)));
-        editBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS,
-                () -> onAddOrEdit(table.getSelectionModel().getSelectedItem())));
+        addBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> onAddOrEdit(table, null)));
+        editBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> {
+            BlockedApp sel = table.getSelectionModel().getSelectedItem();
+            if (sel == null) {
+                appendLog("Selectați o aplicație pentru a o edita.");
+                return;
+            }
+            onAddOrEdit(table, sel);
+        }));
         removeBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> {
             BlockedApp sel = table.getSelectionModel().getSelectedItem();
-            if (sel != null) blockedObservable.remove(sel);
+            if (sel != null) {
+                blockedObservable.remove(sel);
+                saveState();
+            }
         }));
-        saveBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, this::onSave));
+        blockNowBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.DISABLE_RULES, () -> {
+            BlockedApp sel = table.getSelectionModel().getSelectedItem();
+            if (sel == null) {
+                appendLog("Selectați o aplicație pentru blocare imediată.");
+                return;
+            }
+            sel.setEnabled(true);
+            sel.setBlockImmediately(true);
+            appendLog("Aplicație marcată ca blocată: " + sel.getFriendlyName());
+            if (monitor != null) {
+                monitor.blockNow(sel);
+            }
+            table.refresh();
+            saveState();
+        }));
+        unblockBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> unblockApp(table)));
         pinBtn.setOnAction(e -> configurePassword(pinBtn));
 
         startStopBtn.setOnAction(e -> requirePasswordAndRun(ProtectedAction.DISABLE_RULES, this::onToggleMonitor));
         startStopBtn.setText("Porneste monitorizarea");
 
-        HBox controls = new HBox(8, addBtn, editBtn, removeBtn, saveBtn, pinBtn, startStopBtn);
+        HBox controls = new HBox(8, addBtn, editBtn, removeBtn, blockNowBtn, unblockBtn, pinBtn, startStopBtn);
         controls.setPadding(new Insets(8));
 
         totalBlockedLabel.setPadding(new Insets(0, 8, 8, 8));
@@ -150,6 +178,7 @@ public class Main extends Application {
         Consumer<String> logger = this::appendLog;
         monitor = new ProcessMonitor(blockedObservable, logger);
         websiteBlocker = new WebsiteBlocker(logger);
+        enforceImmediateBlocks();
 
         // ensure save on close
         stage.setOnCloseRequest(evt -> {
@@ -179,10 +208,9 @@ public class Main extends Application {
         titleCol.setCellValueFactory(new PropertyValueFactory<>("title"));
         TableColumn<BlockedSite, String> domainCol = new TableColumn<>("Domeniu");
         domainCol.setCellValueFactory(new PropertyValueFactory<>("urlPattern"));
-        TableColumn<BlockedSite, Boolean> enabledCol = new TableColumn<>("Activ");
-        enabledCol.setCellValueFactory(new PropertyValueFactory<>("enabled"));
-        enabledCol.setCellFactory(CheckBoxTableCell.forTableColumn(enabledCol));
-        table.getColumns().addAll(titleCol, domainCol, enabledCol);
+        TableColumn<BlockedSite, String> statusCol = new TableColumn<>("Stare");
+        statusCol.setCellValueFactory(new PropertyValueFactory<>("statusLabel"));
+        table.getColumns().addAll(titleCol, domainCol, statusCol);
         table.setEditable(true);
         return table;
     }
@@ -191,23 +219,34 @@ public class Main extends Application {
         Button addSite = new Button("Adaugă site");
         Button editSite = new Button("Editează site");
         Button removeSite = new Button("Șterge site");
-        Button applySites = new Button("Aplică blocare");
+        Button blockSite = new Button("Blochează site");
+        Button unblockSite = new Button("Deblochează site");
 
-        addSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> onAddOrEditSite(null)));
-        editSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS,
-                () -> onAddOrEditSite(table.getSelectionModel().getSelectedItem())));
+        addSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> onAddOrEditSite(table, null)));
+        editSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> {
+            BlockedSite sel = table.getSelectionModel().getSelectedItem();
+            if (sel == null) {
+                appendLog("Selectați un site pentru a-l edita.");
+                return;
+            }
+            onAddOrEditSite(table, sel);
+        }));
         removeSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> {
             BlockedSite sel = table.getSelectionModel().getSelectedItem();
-            if (sel != null) blockedSites.remove(sel);
+            if (sel != null) {
+                blockedSites.remove(sel);
+                applySiteBlocking();
+            }
         }));
-        applySites.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, this::applySiteBlocking));
+        blockSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> blockSite(table)));
+        unblockSite.setOnAction(e -> requirePasswordAndRun(ProtectedAction.CHANGE_SETTINGS, () -> unblockSite(table)));
 
-        HBox line = new HBox(8, addSite, editSite, removeSite, applySites);
+        HBox line = new HBox(8, addSite, editSite, removeSite, blockSite, unblockSite);
         line.setPadding(new Insets(0, 0, 0, 0));
         return new VBox(8, line);
     }
 
-    private void onAddOrEdit(BlockedApp existing) {
+    private void onAddOrEdit(TableView<BlockedApp> table, BlockedApp existing) {
         boolean editMode = existing != null;
         Dialog<BlockedApp> dialog = new Dialog<>();
         dialog.setTitle(editMode ? "Editează aplicație blocată" : "Adaugă aplicație blocată");
@@ -220,6 +259,7 @@ public class Main extends Application {
         TextField pathField = new TextField();
         TextField limitField = new TextField();
         TextField scheduleField = new TextField();
+        CheckBox immediateBox = new CheckBox("Aplică blocarea imediată (nu permite rularea)");
 
         nameField.setPromptText("Nume ușor de recunoscut");
         exeField.setPromptText("ex: chrome.exe");
@@ -233,6 +273,7 @@ public class Main extends Application {
             pathField.setText(existing.getExePath());
             limitField.setText(existing.getDailyLimitMinutes() == 0 ? "" : Integer.toString(existing.getDailyLimitMinutes()));
             scheduleField.setText(existing.getAllowedIntervals());
+            immediateBox.setSelected(existing.isBlockImmediately());
         }
 
         Button browseBtn = new Button("Răsfoiește...");
@@ -269,16 +310,18 @@ public class Main extends Application {
         grid.add(limitField, 1, 3);
         grid.add(new Label("Intervale permise"), 0, 4);
         grid.add(scheduleField, 1, 4);
+        grid.add(new Label("Blocare instant"), 0, 5);
+        grid.add(immediateBox, 1, 5);
 
         dialog.getDialogPane().setContent(grid);
 
         dialog.setResultConverter(btn -> {
             if (btn == okType) {
-                String name = nameField.getText().trim();
-                String exe = exeField.getText().trim();
-                String path = pathField.getText().trim();
-                String limit = limitField.getText().trim();
-                String schedule = scheduleField.getText().trim();
+                String name = safeText(nameField);
+                String exe = safeText(exeField);
+                String path = safeText(pathField);
+                String limit = safeText(limitField);
+                String schedule = safeText(scheduleField);
                 if (exe.isEmpty() && path.isEmpty()) return null;
                 BlockedApp target = editMode ? existing : new BlockedApp();
                 target.setDisplayName(name.isEmpty() ? exe : name);
@@ -286,7 +329,14 @@ public class Main extends Application {
                 target.setExePath(path.isEmpty() ? null : path);
                 target.setDailyLimitMinutes(parseInt(limit));
                 target.setAllowedIntervals(schedule.isEmpty() ? null : schedule);
-                target.setEnabled(true);
+                if (!editMode) {
+                    target.setEnabled(true);
+                }
+                boolean immediateSelected = immediateBox.isSelected();
+                if (immediateSelected) {
+                    target.setEnabled(true);
+                }
+                target.setBlockImmediately(immediateSelected);
                 return target;
             }
             return null;
@@ -297,16 +347,14 @@ public class Main extends Application {
             if (!editMode) {
                 blockedObservable.add(app);
             }
+            if (table != null) {
+                table.refresh();
+            }
+            if (monitor != null && app.isBlockImmediately()) {
+                monitor.blockNow(app);
+            }
+            saveState();
         });
-    }
-
-    private void onSave() {
-        try {
-            store.save(blockedObservable, blockedSites);
-            appendLog("Salvate " + blockedObservable.size() + " aplicații și " + blockedSites.size() + " site-uri.");
-        } catch (IOException ex) {
-            appendLog("Eșec la salvare: " + ex.getMessage());
-        }
     }
 
     private void onToggleMonitor() {
@@ -341,6 +389,11 @@ public class Main extends Application {
         } catch (NumberFormatException ex) {
             return 0;
         }
+    }
+
+    private String safeText(TextInputControl field) {
+        String value = field == null ? null : field.getText();
+        return value == null ? "" : value.trim();
     }
 
     private void configurePassword(Button trigger) {
@@ -441,7 +494,7 @@ public class Main extends Application {
         return res.isPresent() && res.get() == ButtonType.OK;
     }
 
-    private void onAddOrEditSite(BlockedSite existing) {
+    private void onAddOrEditSite(TableView<BlockedSite> table, BlockedSite existing) {
         boolean editMode = existing != null;
         Dialog<BlockedSite> dialog = new Dialog<>();
         dialog.setTitle(editMode ? "Editează site blocat" : "Adaugă site blocat");
@@ -464,12 +517,15 @@ public class Main extends Application {
 
         dialog.setResultConverter(btn -> {
             if (btn == okType) {
-                String url = urlField.getText().trim();
+                String url = safeText(urlField);
                 if (url.isEmpty()) return null;
                 BlockedSite target = editMode ? existing : new BlockedSite();
-                target.setTitle(titleField.getText().trim().isEmpty() ? url : titleField.getText().trim());
+                String title = safeText(titleField);
+                target.setTitle(title.isEmpty() ? url : title);
                 target.setUrlPattern(url);
-                target.setEnabled(true);
+                if (!editMode) {
+                    target.setEnabled(true);
+                }
                 return target;
             }
             return null;
@@ -479,15 +535,98 @@ public class Main extends Application {
             if (!editMode) {
                 blockedSites.add(site);
             }
+            if (table != null) {
+                table.refresh();
+            }
+            applySiteBlocking();
         });
     }
 
     private void applySiteBlocking() {
         try {
             websiteBlocker.apply(blockedSites);
-            appendLog("Blocare site-uri aplicată pentru " + blockedSites.size() + " intrări.");
+            long activeCount = blockedSites.stream().filter(BlockedSite::isEnabled).count();
+            appendLog("Blocare site-uri aplicată pentru " + activeCount + " intrări active.");
         } catch (IOException ex) {
             appendLog("Blocarea site-urilor a eșuat: " + ex.getMessage());
         }
+        saveState();
+    }
+
+    private void unblockApp(TableView<BlockedApp> table) {
+        BlockedApp selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            appendLog("Selectați o aplicație pentru deblocare.");
+            return;
+        }
+        if (!selected.isEnabled() && !selected.isBlockImmediately()) {
+            appendLog("Aplicația " + selected.getFriendlyName() + " este deja deblocată.");
+            return;
+        }
+        selected.setBlockImmediately(false);
+        selected.setEnabled(false);
+        appendLog("Aplicație deblocată: " + selected.getFriendlyName());
+        table.refresh();
+        saveState();
+    }
+
+    private void unblockSite(TableView<BlockedSite> table) {
+        BlockedSite selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            appendLog("Selectați un site pentru deblocare.");
+            return;
+        }
+        if (!selected.isEnabled()) {
+            appendLog("Site-ul este deja deblocat.");
+            return;
+        }
+        selected.setEnabled(false);
+        appendLog("Site deblocat: " + selected.getDisplayDomain());
+        applySiteBlocking();
+        if (table != null) {
+            table.refresh();
+        }
+    }
+
+    private void blockSite(TableView<BlockedSite> table) {
+        BlockedSite selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            appendLog("Selectați un site pentru blocare.");
+            return;
+        }
+        boolean wasEnabled = selected.isEnabled();
+        selected.setEnabled(true);
+        appendLog((wasEnabled ? "Reaplic blocarea pentru " : "Site blocat: ") + selected.getDisplayDomain());
+        applySiteBlocking();
+        if (table != null) {
+            table.refresh();
+        }
+    }
+
+    private void saveState() {
+        try {
+            store.save(blockedObservable, blockedSites);
+        } catch (IOException ex) {
+            appendLog("Eroare la salvarea automată: " + ex.getMessage());
+        }
+        enforceImmediateBlocks();
+    }
+
+    private void enforceImmediateBlocks() {
+        if (monitor == null) {
+            return;
+        }
+        boolean hasImmediate = blockedObservable.stream().anyMatch(BlockedApp::isBlockImmediately);
+        if (!hasImmediate) {
+            return;
+        }
+        if (!monitor.isRunning()) {
+            monitor.start();
+            Platform.runLater(() -> startStopBtn.setText("Opreste monitorizarea"));
+            appendLog("Monitorizarea a pornit automat pentru blocările imediate.");
+        }
+        blockedObservable.stream()
+                .filter(BlockedApp::isBlockImmediately)
+                .forEach(monitor::blockNow);
     }
 }

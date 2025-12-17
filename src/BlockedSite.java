@@ -46,6 +46,10 @@ public class BlockedSite {
         this.enabled = enabled;
     }
 
+    public String getStatusLabel() {
+        return enabled ? "Blocat" : "Deblocat";
+    }
+
     public String getDisplayDomain() {
         String host = extractHost(urlPattern);
         return host == null ? urlPattern : host;
@@ -102,4 +106,3 @@ public class BlockedSite {
         return Objects.hash(id);
     }
 }
-

@@ -46,6 +46,32 @@ public class ProcessMonitor {
         return running;
     }
 
+    public void blockNow(BlockedApp target) {
+        enforceImmediate(target);
+    }
+
+    private void enforceImmediate(BlockedApp target) {
+        if (target == null) {
+            return;
+        }
+        try {
+            for (ProcessHandle ph : ProcessHandle.allProcesses().toArray(ProcessHandle[]::new)) {
+                if (!ph.isAlive()) {
+                    continue;
+                }
+                String cmd = ph.info().command().orElse("");
+                if (cmd.isBlank()) {
+                    continue;
+                }
+                if (target.matchesExecutable(cmd)) {
+                    tryTerminate(ph.pid(), cmd, target);
+                }
+            }
+        } catch (Throwable t) {
+            log("Blocare manuală eșuată: " + t.getMessage());
+        }
+    }
+
     private void poll() {
         try {
             Instant nowInstant = Instant.now();

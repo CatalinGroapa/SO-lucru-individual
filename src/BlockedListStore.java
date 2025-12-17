@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Format multi-tip:
-// APP|id|displayName|exeName|enabled|exePath|dailyLimit|usageMillis|usageDate|allowedIntervals
+// APP|id|displayName|exeName|enabled|blockImmediately|exePath|dailyLimit|usageMillis|usageDate|allowedIntervals
 // WEB|id|title|urlPattern|enabled
 public class BlockedListStore {
     private final Path dataFile;
@@ -78,6 +78,7 @@ public class BlockedListStore {
                         nullToEmpty(b.getDisplayName()),
                         nullToEmpty(b.getExeName()),
                         Boolean.toString(b.isEnabled()),
+                        Boolean.toString(b.isBlockImmediately()),
                         nullToEmpty(b.getExePath()),
                         Integer.toString(b.getDailyLimitMinutes()),
                         Long.toString(b.getUsageMillisToday()),
@@ -137,11 +138,12 @@ public class BlockedListStore {
             b.setDisplayName(parts[2]);
             b.setExeName(parts[3]);
             b.setEnabled("true".equalsIgnoreCase(parts[4]));
-            if (parts.length > 5) b.setExePath(emptyToNull(parts[5]));
-            if (parts.length > 6) b.setDailyLimitMinutes(parseIntSafe(parts[6]));
-            if (parts.length > 7) b.setUsageMillisToday(parseLongSafe(parts[7]));
-            if (parts.length > 8) b.setUsageDateIso(emptyToNull(parts[8]));
-            if (parts.length > 9) b.setAllowedIntervals(emptyToNull(parts[9]));
+            if (parts.length > 5) b.setBlockImmediately("true".equalsIgnoreCase(parts[5]));
+            if (parts.length > 6) b.setExePath(emptyToNull(parts[6]));
+            if (parts.length > 7) b.setDailyLimitMinutes(parseIntSafe(parts[7]));
+            if (parts.length > 8) b.setUsageMillisToday(parseLongSafe(parts[8]));
+            if (parts.length > 9) b.setUsageDateIso(emptyToNull(parts[9]));
+            if (parts.length > 10) b.setAllowedIntervals(emptyToNull(parts[10]));
             return b;
         }
         // Fallback vechi: id|display|exe|enabled
