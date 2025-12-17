@@ -1,0 +1,34 @@
+/* Simple styling for the parental control app */
+.root {
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+    -fx-font-size: 13px;
+    -fx-base: #f5f7fb;
+}
+
+.table-view {
+    -fx-border-color: #dce2eb;
+    -fx-table-header-border-color: transparent;
+}
+
+.button {
+    -fx-background-color: linear-gradient(#4a90e2, #357ABD);
+    -fx-text-fill: white;
+    -fx-font-weight: 600;
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(#5aa0f0, #3c84d0);
+}
+
+.button:disabled {
+    -fx-opacity: 0.6;
+}
+
+.text-area {
+    -fx-control-inner-background: #fdfefe;
+    -fx-border-color: #dce2eb;
+}
+
+.label {
+    -fx-text-fill: #1f2a44;
+}
